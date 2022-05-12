@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -22,11 +23,8 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	if err != nil {
 		return err
 	}
-	key := sha256.New()
-	defer func() {
-		fmt.Fprintln(fkey, hex.EncodeToString(key.Sum(nil)))
-		fkey.Close()
-	}()
+	skey := sha256.New()
+	defer fkey.Close()
 
 	// cmd
 	fcmd, err := os.Create(path.Join(capturedDir, "cmd"))
@@ -36,7 +34,7 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	defer fcmd.Close()
 	args := strings.TrimSpace(strings.Join(cmd.Args, " "))
 	fmt.Fprintln(fcmd, args)
-	fmt.Fprintln(key, args)
+	fmt.Fprintln(skey, args)
 
 	// stdin
 	fstdin, err := os.Create(path.Join(capturedDir, "stdin"))
@@ -45,15 +43,11 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	}
 	defer fstdin.Close()
 
-	pstdin, err := cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		defer pstdin.Close()
-		io.Copy(io.MultiWriter(pstdin, fstdin, key), os.Stdin)
-	}()
+	var bstdin bytes.Buffer
+	io.Copy(io.MultiWriter(&bstdin, fstdin, skey), os.Stdin)
+	cmd.Stdin = &bstdin
+	key := hex.EncodeToString(skey.Sum(nil))
+	fmt.Fprintln(fkey, key)
 
 	// stdout
 	fstdout, err := os.Create(path.Join(capturedDir, "stdout"))
