@@ -48,6 +48,7 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	cstderr := &WriteCounter{}
 	cmd.Stderr = io.MultiWriter(os.Stderr, cstderr)
 
+	startTime := time.Now()
 	exitCode := "?"
 	runError := cmd.Run()
 	if runError != nil {
@@ -57,9 +58,17 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	} else {
 		exitCode = "0"
 	}
+	endTime := time.Now()
 
 	if f, err := os.OpenFile(path.Join(capturedDir, key), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
-		fmt.Fprintf(f, "%s %s | %s out=%d err=%d exit=%s\n", time.Now().Format(time.RFC3339), args, stdin, cstdout.Total, cstderr.Total, exitCode)
+		fmt.Fprintf(f, "%s %s %s | %s out=%d err=%d exit=%s\n",
+			startTime.Format(time.RFC3339),
+			endTime.Format(time.RFC3339),
+			args,
+			stdin,
+			cstdout.Total,
+			cstderr.Total,
+			exitCode)
 		defer f.Close()
 	}
 
