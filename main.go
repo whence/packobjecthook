@@ -65,6 +65,16 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	defer fstderr.Close()
 	cmd.Stderr = io.MultiWriter(os.Stderr, fstderr)
 
+	// env
+	fenv, err := os.Create(path.Join(capturedDir, "env"))
+	if err != nil {
+		return err
+	}
+	defer fenv.Close()
+	for _, e := range os.Environ() {
+		fmt.Fprintln(fenv, e)
+	}
+
 	return cmd.Run()
 }
 
