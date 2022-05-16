@@ -10,7 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // WriteCounter counts the number of bytes written to it.
@@ -34,7 +36,7 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	fmt.Fprintln(skey, args)
 
 	var bstdin1, bstdin2 bytes.Buffer
-	io.Copy(io.MultiWriter(&bstdin1, skey), os.Stdin)
+	io.Copy(io.MultiWriter(&bstdin1, &bstdin2, skey), os.Stdin)
 	cmd.Stdin = &bstdin1
 	stdin := strings.ReplaceAll(bstdin2.String(), "\n", " ")
 
@@ -46,10 +48,18 @@ func runcmd(cmd *exec.Cmd, capturedDir string) error {
 	cstderr := &WriteCounter{}
 	cmd.Stderr = io.MultiWriter(os.Stderr, cstderr)
 
+	exitCode := "?"
 	runError := cmd.Run()
+	if runError != nil {
+		if exitError, ok := runError.(*exec.ExitError); ok {
+			exitCode = strconv.Itoa(exitError.ExitCode())
+		}
+	} else {
+		exitCode = "0"
+	}
 
 	if f, err := os.OpenFile(path.Join(capturedDir, key), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
-		fmt.Fprintf(f, "%s %s %d %d\n", args, stdin, cstdout.Total, cstderr.Total)
+		fmt.Fprintf(f, "%s %s | %s out=%d err=%d exit=%s\n", time.Now().Format(time.RFC3339), args, stdin, cstdout.Total, cstderr.Total, exitCode)
 		defer f.Close()
 	}
 
