@@ -13,69 +13,47 @@ import (
 	"strings"
 )
 
+// WriteCounter counts the number of bytes written to it.
+type WriteCounter struct {
+	Total int64 // Total # of bytes written
+}
+
+// Write implements the io.Writer interface.
+//
+// Always completes and never returns an error.
+func (wc *WriteCounter) Write(p []byte) (int, error) {
+	n := len(p)
+	wc.Total += int64(n)
+	return n, nil
+}
+
 func runcmd(cmd *exec.Cmd, capturedDir string) error {
-	if err := os.MkdirAll(capturedDir, 0755); err != nil {
-		return err
-	}
-
-	// key
-	fkey, err := os.Create(path.Join(capturedDir, "key"))
-	if err != nil {
-		return err
-	}
 	skey := sha256.New()
-	defer fkey.Close()
 
-	// cmd
-	fcmd, err := os.Create(path.Join(capturedDir, "cmd"))
-	if err != nil {
-		return err
-	}
-	defer fcmd.Close()
 	args := strings.TrimSpace(strings.Join(cmd.Args, " "))
-	fmt.Fprintln(fcmd, args)
 	fmt.Fprintln(skey, args)
 
-	// stdin
-	fstdin, err := os.Create(path.Join(capturedDir, "stdin"))
-	if err != nil {
-		return err
-	}
-	defer fstdin.Close()
+	var bstdin1, bstdin2 bytes.Buffer
+	io.Copy(io.MultiWriter(&bstdin1, skey), os.Stdin)
+	cmd.Stdin = &bstdin1
+	stdin := strings.ReplaceAll(bstdin2.String(), "\n", " ")
 
-	var bstdin bytes.Buffer
-	io.Copy(io.MultiWriter(&bstdin, fstdin, skey), os.Stdin)
-	cmd.Stdin = &bstdin
 	key := hex.EncodeToString(skey.Sum(nil))
-	fmt.Fprintln(fkey, key)
 
-	// stdout
-	fstdout, err := os.Create(path.Join(capturedDir, "stdout"))
-	if err != nil {
-		return err
-	}
-	defer fstdout.Close()
-	cmd.Stdout = io.MultiWriter(os.Stdout, fstdout)
+	cstdout := &WriteCounter{}
+	cmd.Stdout = io.MultiWriter(os.Stdout, cstdout)
 
-	// stderr
-	fstderr, err := os.Create(path.Join(capturedDir, "stderr"))
-	if err != nil {
-		return err
-	}
-	defer fstderr.Close()
-	cmd.Stderr = io.MultiWriter(os.Stderr, fstderr)
+	cstderr := &WriteCounter{}
+	cmd.Stderr = io.MultiWriter(os.Stderr, cstderr)
 
-	// env
-	fenv, err := os.Create(path.Join(capturedDir, "env"))
-	if err != nil {
-		return err
-	}
-	defer fenv.Close()
-	for _, e := range os.Environ() {
-		fmt.Fprintln(fenv, e)
+	runError := cmd.Run()
+
+	if f, err := os.OpenFile(path.Join(capturedDir, key), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644); err == nil {
+		fmt.Fprintf(f, "%s %s %d %d\n", args, stdin, cstdout.Total, cstderr.Total)
+		defer f.Close()
 	}
 
-	return cmd.Run()
+	return runError
 }
 
 func main() {
@@ -90,6 +68,10 @@ func main() {
 	capturedDir, ok := os.LookupEnv("CAPTURED_DIR")
 	if !ok {
 		log.Fatalln("CAPTURED_DIR not set.")
+	}
+
+	if err := os.MkdirAll(capturedDir, 0755); err != nil {
+		log.Fatalf("Failed to create CAPTURED_DIR (%s).\n", capturedDir)
 	}
 
 	var exitCode int
