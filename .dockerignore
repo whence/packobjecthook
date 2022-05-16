@@ -1,0 +1,9 @@
+# direnv
+.envrc
+
+# GoReleaser
+dist/
+
+# IntelliJ files
+.idea/
+*.iml

@@ -1,0 +1,19 @@
+builds:
+  - main: main.go
+    binary: packobjectshook
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ .Tag }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
