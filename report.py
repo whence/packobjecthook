@@ -52,8 +52,8 @@ def main():
     exit_nonzeroes = 0
     cache_hits = 0
     cache_misses = 0
-    largest_stdout_len = 0
-    longest_duration = 0
+    largest_stdout = (0, "")
+    longest_duration = (0, "")
     stderr_lens = set()
     stdout_variations = set()
 
@@ -76,11 +76,11 @@ def main():
                         else:
                             cache_misses += 1
 
-                        if line["stdout_len"] > largest_stdout_len:
-                            largest_stdout_len = line["stdout_len"]
+                        if line["stdout_len"] > largest_stdout[0]:
+                            largest_stdout = (line["stdout_len"], filename)
 
-                        if line["duration"] > longest_duration:
-                            longest_duration = line["duration"]
+                        if line["duration"] > longest_duration[0]:
+                            longest_duration = (line["duration"], filename)
 
                         stderr_lens.add(line["stderr_len"])
 
@@ -98,8 +98,8 @@ def main():
     print(f"cache_hits {cache_hits} {percent(cache_hits, total_requests)}")
     print(f"cache_misses {cache_misses} {percent(cache_misses, total_requests)}")
     print(f"exit_nonzeroes {exit_nonzeroes} {percent(exit_nonzeroes, total_requests+filtered_requests+exit_nonzeroes)}")
-    print(f"largest_stdout {largest_stdout_len}")
-    print(f"longest_duration {longest_duration}")
+    print(f"largest_stdout {largest_stdout[0]} {largest_stdout[1]}")
+    print(f"longest_duration {longest_duration[0]} {longest_duration[1]}")
     print(f"stderr patterns {' '.join(map(str, sorted(stderr_lens)))}")
     print(f"stdout_variations {' '.join(stdout_variations)}")
 
