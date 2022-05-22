@@ -100,7 +100,7 @@ def main():
     print(f"exit_nonzeroes {exit_nonzeroes} {percent(exit_nonzeroes, total_requests+filtered_requests+exit_nonzeroes)}")
     print(f"largest_stdout {largest_stdout[0]} {largest_stdout[1]}")
     print(f"longest_duration {longest_duration[0]} {longest_duration[1]}")
-    print(f"stderr patterns {' '.join(map(str, sorted(stderr_lens)))}")
+    print(f"stderr_patterns {' '.join(map(str, sorted(stderr_lens)))}")
     print(f"stdout_variations {' '.join(stdout_variations)}")
 
 
